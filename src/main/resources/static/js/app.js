@@ -1,7 +1,8 @@
-const API_BASE_URL = "http://localhost:8080/school";
+const API_BASE_URL = "/school";
 
 let schools = [];
 let deleteCandidate = null;
+let activityLog = [];
 
 let sortState = {
     key: "id",
@@ -10,15 +11,21 @@ let sortState = {
 
 const elements = {};
 
+
+/* =========================================================
+   START APPLICATION
+   ========================================================= */
+
 document.addEventListener("DOMContentLoaded", () => {
     cacheElements();
     bindEvents();
+    startClock();
     getAllSchools();
 });
 
 
 /* =========================================================
-   DOM ELEMENTS
+   CACHE HTML ELEMENTS
    ========================================================= */
 
 function cacheElements() {
@@ -27,9 +34,10 @@ function cacheElements() {
     elements.sidebar = document.getElementById("sidebar");
     elements.menuToggle = document.getElementById("menu-toggle");
     elements.refreshButton = document.getElementById("refresh-button");
+    elements.openAddButton = document.getElementById("open-add-button");
     elements.navLinks = document.querySelectorAll(".nav-link");
 
-    // Dashboard statistics
+    // Dashboard
     elements.totalSchools = document.getElementById("total-schools");
     elements.activeSchools = document.getElementById("active-schools");
     elements.inactiveSchools = document.getElementById("inactive-schools");
@@ -39,104 +47,50 @@ function cacheElements() {
     elements.addSchoolForm = document.getElementById("add-school-form");
     elements.schoolName = document.getElementById("school-name");
     elements.schoolLocation = document.getElementById("school-location");
-
-    elements.schoolNameError =
-        document.getElementById("school-name-error");
-
-    elements.schoolLocationError =
-        document.getElementById("school-location-error");
-
-    elements.addSchoolButton =
-        document.getElementById("add-school-button");
+    elements.schoolNameError = document.getElementById("school-name-error");
+    elements.schoolLocationError = document.getElementById("school-location-error");
+    elements.addSchoolButton = document.getElementById("add-school-button");
 
     // Search School
-    elements.searchSchoolForm =
-        document.getElementById("search-school-form");
+    elements.searchSchoolForm = document.getElementById("search-school-form");
+    elements.searchSchoolId = document.getElementById("search-school-id");
+    elements.searchSchoolIdError = document.getElementById("search-school-id-error");
+    elements.searchSchoolButton = document.getElementById("search-school-button");
+    elements.searchResult = document.getElementById("search-result");
 
-    elements.searchSchoolId =
-        document.getElementById("search-school-id");
+    // School Table
+    elements.tableSearch = document.getElementById("table-search");
+    elements.statusFilter = document.getElementById("status-filter");
+    elements.tableStatus = document.getElementById("table-status");
+    elements.schoolsTableBody = document.getElementById("schools-table-body");
+    elements.emptyState = document.getElementById("empty-state");
+    elements.emptyAddButton = document.getElementById("empty-add-button");
+    elements.sortButtons = document.querySelectorAll(".sort-button");
 
-    elements.searchSchoolIdError =
-        document.getElementById("search-school-id-error");
+    // Edit Modal
+    elements.editModal = document.getElementById("edit-modal");
+    elements.editSchoolForm = document.getElementById("edit-school-form");
+    elements.editSchoolId = document.getElementById("edit-school-id");
+    elements.editSchoolName = document.getElementById("edit-school-name");
+    elements.editSchoolLocation = document.getElementById("edit-school-location");
+    elements.editSchoolNameError = document.getElementById("edit-school-name-error");
+    elements.editSchoolLocationError = document.getElementById("edit-school-location-error");
+    elements.saveEditButton = document.getElementById("save-edit-button");
+    elements.closeEditModalButton = document.getElementById("close-edit-modal");
+    elements.cancelEditButton = document.getElementById("cancel-edit-button");
 
-    elements.searchSchoolButton =
-        document.getElementById("search-school-button");
+    // Delete Modal
+    elements.deleteModal = document.getElementById("delete-modal");
+    elements.deleteMessage = document.getElementById("delete-message");
+    elements.confirmDeleteButton = document.getElementById("confirm-delete-button");
+    elements.closeDeleteModalButton = document.getElementById("close-delete-modal");
+    elements.cancelDeleteButton = document.getElementById("cancel-delete-button");
 
-    elements.searchResult =
-        document.getElementById("search-result");
-
-    // School table
-    elements.tableSearch =
-        document.getElementById("table-search");
-
-    elements.statusFilter =
-        document.getElementById("status-filter");
-
-    elements.tableStatus =
-        document.getElementById("table-status");
-
-    elements.schoolsTableBody =
-        document.getElementById("schools-table-body");
-
-    elements.emptyState =
-        document.getElementById("empty-state");
-
-    elements.emptyAddButton =
-        document.getElementById("empty-add-button");
-
-    elements.sortButtons =
-        document.querySelectorAll(".sort-button");
-
-    // Edit modal
-    elements.editModal =
-        document.getElementById("edit-modal");
-
-    elements.editSchoolForm =
-        document.getElementById("edit-school-form");
-
-    elements.editSchoolId =
-        document.getElementById("edit-school-id");
-
-    elements.editSchoolName =
-        document.getElementById("edit-school-name");
-
-    elements.editSchoolLocation =
-        document.getElementById("edit-school-location");
-
-    elements.editSchoolNameError =
-        document.getElementById("edit-school-name-error");
-
-    elements.editSchoolLocationError =
-        document.getElementById("edit-school-location-error");
-
-    elements.saveEditButton =
-        document.getElementById("save-edit-button");
-
-    elements.closeEditModalButton =
-        document.getElementById("close-edit-modal");
-
-    elements.cancelEditButton =
-        document.getElementById("cancel-edit-button");
-
-    // Delete modal
-    elements.deleteModal =
-        document.getElementById("delete-modal");
-
-    elements.deleteMessage =
-        document.getElementById("delete-message");
-
-    elements.confirmDeleteButton =
-        document.getElementById("confirm-delete-button");
-
-    elements.closeDeleteModalButton =
-        document.getElementById("close-delete-modal");
-
-    elements.cancelDeleteButton =
-        document.getElementById("cancel-delete-button");
-
-    // Toast notifications
-    elements.toastContainer =
-        document.getElementById("toast-container");
+    // Cyberpunk UI
+    elements.toastContainer = document.getElementById("toast-container");
+    elements.activityList = document.getElementById("activity-list");
+    elements.liveTime = document.getElementById("live-time");
+    elements.liveDate = document.getElementById("live-date");
 }
 
 
@@ -146,23 +100,10 @@ function cacheElements() {
 
 function bindEvents() {
 
-    // Add
-    elements.addSchoolForm.addEventListener(
-        "submit",
-        addSchool
-    );
-
-    // Search
-    elements.searchSchoolForm.addEventListener(
-        "submit",
-        getSchoolById
-    );
-
-    // Update
-    elements.editSchoolForm.addEventListener(
-        "submit",
-        updateSchool
-    );
+    // Forms
+    elements.addSchoolForm.addEventListener("submit", addSchool);
+    elements.searchSchoolForm.addEventListener("submit", getSchoolById);
+    elements.editSchoolForm.addEventListener("submit", updateSchool);
 
     // Refresh
     elements.refreshButton.addEventListener(
@@ -170,20 +111,20 @@ function bindEvents() {
         () => getAllSchools(true)
     );
 
-    // Table search
+    // Table Search
     elements.tableSearch.addEventListener(
         "input",
         renderSchools
     );
 
-    // Status filter
+    // Status Filter
     elements.statusFilter.addEventListener(
         "change",
         renderSchools
     );
 
     // Sorting
-    elements.sortButtons.forEach((button) => {
+    elements.sortButtons.forEach(button => {
 
         button.addEventListener("click", () => {
             changeSort(button.dataset.sort);
@@ -191,8 +132,8 @@ function bindEvents() {
 
     });
 
-    // Sidebar navigation
-    elements.navLinks.forEach((button) => {
+    // Navigation
+    elements.navLinks.forEach(button => {
 
         button.addEventListener("click", () => {
             navigateToSection(button);
@@ -200,28 +141,24 @@ function bindEvents() {
 
     });
 
-    // Mobile sidebar
+    // Sidebar
     elements.menuToggle.addEventListener(
         "click",
         toggleSidebar
     );
 
-    // Empty-state Add button
-    elements.emptyAddButton.addEventListener(
+    // Add School Buttons
+    elements.openAddButton.addEventListener(
         "click",
-        () => {
-
-            document
-                .getElementById("add-section")
-                .scrollIntoView({
-                    behavior: "smooth"
-                });
-
-            elements.schoolName.focus();
-        }
+        focusAddSection
     );
 
-    // Edit modal
+    elements.emptyAddButton.addEventListener(
+        "click",
+        focusAddSection
+    );
+
+    // Edit Modal
     elements.closeEditModalButton.addEventListener(
         "click",
         closeEditModal
@@ -232,18 +169,12 @@ function bindEvents() {
         closeEditModal
     );
 
-    elements.editModal.addEventListener(
+    // Delete Modal
+    elements.confirmDeleteButton.addEventListener(
         "click",
-        (event) => {
-
-            if (event.target === elements.editModal) {
-                closeEditModal();
-            }
-
-        }
+        deleteSchool
     );
 
-    // Delete modal
     elements.closeDeleteModalButton.addEventListener(
         "click",
         closeDeleteModal
@@ -254,23 +185,25 @@ function bindEvents() {
         closeDeleteModal
     );
 
-    elements.confirmDeleteButton.addEventListener(
-        "click",
-        deleteSchool
-    );
+    // Close edit modal when clicking outside
+    elements.editModal.addEventListener("click", event => {
 
-    elements.deleteModal.addEventListener(
-        "click",
-        (event) => {
-
-            if (event.target === elements.deleteModal) {
-                closeDeleteModal();
-            }
-
+        if (event.target === elements.editModal) {
+            closeEditModal();
         }
-    );
 
-    // Escape key closes modal
+    });
+
+    // Close delete modal when clicking outside
+    elements.deleteModal.addEventListener("click", event => {
+
+        if (event.target === elements.deleteModal) {
+            closeDeleteModal();
+        }
+
+    });
+
+    // Escape key
     document.addEventListener(
         "keydown",
         handleEscapeKey
@@ -287,7 +220,7 @@ async function getAllSchools(showSuccessMessage = false) {
     setButtonLoading(
         elements.refreshButton,
         true,
-        "Refreshing..."
+        "REFRESHING..."
     );
 
     setTableLoading(true);
@@ -311,7 +244,7 @@ async function getAllSchools(showSuccessMessage = false) {
         if (!Array.isArray(data)) {
 
             throw new Error(
-                "Expected an array of schools from /getAll."
+                "Expected an array from /getAll."
             );
 
         }
@@ -324,8 +257,13 @@ async function getAllSchools(showSuccessMessage = false) {
 
         if (showSuccessMessage) {
 
+            addActivity(
+                "Registry refreshed",
+                "search"
+            );
+
             showNotification(
-                "School data refreshed successfully.",
+                "School registry refreshed.",
                 "success"
             );
 
@@ -345,21 +283,19 @@ async function getAllSchools(showSuccessMessage = false) {
         renderSchools();
 
         elements.tableStatus.textContent =
-            "Unable to load schools. Check that the Spring Boot server is running.";
+            "BACKEND OFFLINE OR UNREACHABLE";
 
         showNotification(
-            "Unable to communicate with the server.",
+            "Unable to communicate with the Spring Boot server.",
             "error"
         );
 
     } finally {
 
-        setTableLoading(false);
-
         setButtonLoading(
             elements.refreshButton,
             false,
-            "Refresh Data"
+            "↻ REFRESH"
         );
 
     }
@@ -382,8 +318,6 @@ async function addSchool(event) {
     const location =
         elements.schoolLocation.value.trim();
 
-
-    // Validate
     if (
         !validateSchoolFields(
             name,
@@ -394,35 +328,25 @@ async function addSchool(event) {
     ) {
 
         showNotification(
-            "Please correct the highlighted fields.",
+            "Check the highlighted fields.",
             "warning"
         );
 
         return;
     }
 
-
     setButtonLoading(
         elements.addSchoolButton,
         true,
-        "Adding..."
+        "ADDING..."
     );
 
-
     try {
-
-        /*
-         * Your backend expects query parameters:
-         *
-         * POST
-         * /school/add?schoolName=...&location=...
-         */
 
         const url =
             `${API_BASE_URL}/add` +
             `?schoolName=${encodeURIComponent(name)}` +
             `&location=${encodeURIComponent(location)}`;
-
 
         const response = await fetch(
             url,
@@ -430,7 +354,6 @@ async function addSchool(event) {
                 method: "POST"
             }
         );
-
 
         if (!response.ok) {
 
@@ -440,23 +363,19 @@ async function addSchool(event) {
 
         }
 
-
         /*
-         * Your backend returns only the ID:
+         * Backend returns the newly created ID
+         * as plain text.
          *
+         * Example:
          * 10
-         *
-         * Therefore we use response.text()
-         * instead of response.json().
          */
 
         const idText =
             (await response.text()).trim();
 
-
         const createdSchoolId =
             Number(idText);
-
 
         if (!Number.isFinite(createdSchoolId)) {
 
@@ -466,20 +385,21 @@ async function addSchool(event) {
 
         }
 
-
         showNotification(
-            `School successfully created with ID: ${createdSchoolId}`,
+            `School created. ID: ${createdSchoolId}`,
             "success"
         );
 
+        addActivity(
+            `New school "${name}" added`,
+            "create"
+        );
 
         // Clear form
         elements.addSchoolForm.reset();
 
-
-        // Refresh table
+        // Refresh registry
         await getAllSchools();
-
 
     } catch (error) {
 
@@ -488,9 +408,8 @@ async function addSchool(event) {
             error
         );
 
-
         showNotification(
-            "Unable to add school. Check the backend connection.",
+            "Unable to add school.",
             "error"
         );
 
@@ -499,7 +418,7 @@ async function addSchool(event) {
         setButtonLoading(
             elements.addSchoolButton,
             false,
-            "Add School"
+            "ADD SCHOOL"
         );
 
     }
@@ -507,7 +426,7 @@ async function addSchool(event) {
 
 
 /* =========================================================
-   GET SCHOOL BY ID
+   SEARCH SCHOOL BY ID
    ========================================================= */
 
 async function getSchoolById(event) {
@@ -518,17 +437,14 @@ async function getSchoolById(event) {
 
     elements.searchResult.replaceChildren();
 
-
     const idValue =
         elements.searchSchoolId.value.trim();
-
 
     const id =
         Number(idValue);
 
-
     /*
-     * Validate School ID
+     * Validate ID
      */
 
     if (
@@ -538,31 +454,22 @@ async function getSchoolById(event) {
     ) {
 
         elements.searchSchoolIdError.textContent =
-            "Enter a numeric school ID greater than 0.";
-
-
-        showNotification(
-            "Please enter a valid school ID.",
-            "warning"
-        );
+            "Enter a valid school ID greater than 0.";
 
         return;
     }
 
-
     setButtonLoading(
         elements.searchSchoolButton,
         true,
-        "Searching..."
+        "SEARCHING..."
     );
-
 
     try {
 
         const response = await fetch(
             `${API_BASE_URL}/getById?id=${encodeURIComponent(id)}`
         );
-
 
         if (!response.ok) {
 
@@ -572,26 +479,15 @@ async function getSchoolById(event) {
 
         }
 
-
         const data =
             await parseJsonResponse(response);
 
-
         /*
-         * IMPORTANT:
+         * Your backend currently returns
+         * an empty School object when the
+         * school doesn't exist.
          *
-         * Your backend currently does not
-         * return HTTP 404.
-         *
-         * Instead it returns:
-         *
-         * {
-         *     "id": null,
-         *     "name": null,
-         *     ...
-         * }
-         *
-         * Therefore we check data.id.
+         * Therefore check data.id.
          */
 
         if (
@@ -601,6 +497,11 @@ async function getSchoolById(event) {
 
             renderNotFound();
 
+            addActivity(
+                `School ID ${id} not found`,
+                "search"
+            );
+
             showNotification(
                 "School not found.",
                 "info"
@@ -609,9 +510,12 @@ async function getSchoolById(event) {
             return;
         }
 
-
         renderSearchResult(data);
 
+        addActivity(
+            `School ID ${id} retrieved`,
+            "search"
+        );
 
     } catch (error) {
 
@@ -620,24 +524,21 @@ async function getSchoolById(event) {
             error
         );
 
-
         renderSearchError(
-            "Unable to retrieve the school. Check the server connection."
+            "Unable to retrieve the school."
         );
-
 
         showNotification(
-            "Unable to communicate with the server.",
+            "Unable to search the registry.",
             "error"
         );
-
 
     } finally {
 
         setButtonLoading(
             elements.searchSchoolButton,
             false,
-            "Search School"
+            "SEARCH"
         );
 
     }
@@ -654,18 +555,14 @@ async function updateSchool(event) {
 
     clearEditFormErrors();
 
-
     const id =
         Number(elements.editSchoolId.value);
-
 
     const name =
         elements.editSchoolName.value.trim();
 
-
     const location =
         elements.editSchoolLocation.value.trim();
-
 
     if (
         !Number.isInteger(id) ||
@@ -680,7 +577,6 @@ async function updateSchool(event) {
         return;
     }
 
-
     if (
         !validateSchoolFields(
             name,
@@ -691,31 +587,20 @@ async function updateSchool(event) {
     ) {
 
         showNotification(
-            "Please correct the highlighted fields.",
+            "Check the highlighted fields.",
             "warning"
         );
 
         return;
     }
 
-
     setButtonLoading(
         elements.saveEditButton,
         true,
-        "Saving..."
+        "SAVING..."
     );
 
-
     try {
-
-        /*
-         * PUT
-         *
-         * /school/update
-         * ?id=...
-         * &name=...
-         * &location=...
-         */
 
         const url =
             `${API_BASE_URL}/update` +
@@ -723,15 +608,12 @@ async function updateSchool(event) {
             `&name=${encodeURIComponent(name)}` +
             `&location=${encodeURIComponent(location)}`;
 
-
-        const response =
-            await fetch(
-                url,
-                {
-                    method: "PUT"
-                }
-            );
-
+        const response = await fetch(
+            url,
+            {
+                method: "PUT"
+            }
+        );
 
         if (!response.ok) {
 
@@ -741,10 +623,8 @@ async function updateSchool(event) {
 
         }
 
-
         const updatedSchool =
             await parseJsonResponse(response);
-
 
         if (
             updatedSchool == null ||
@@ -752,23 +632,24 @@ async function updateSchool(event) {
         ) {
 
             throw new Error(
-                "Backend did not return a valid updated school."
+                "Invalid updated school response."
             );
 
         }
 
-
         showNotification(
-            "School updated successfully.",
+            "School record updated.",
             "success"
         );
 
+        addActivity(
+            `School "${name}" updated`,
+            "update"
+        );
 
         closeEditModal();
 
-
         await getAllSchools();
-
 
     } catch (error) {
 
@@ -777,19 +658,17 @@ async function updateSchool(event) {
             error
         );
 
-
         showNotification(
             "Unable to update school.",
             "error"
         );
-
 
     } finally {
 
         setButtonLoading(
             elements.saveEditButton,
             false,
-            "Save Changes"
+            "SAVE CHANGES"
         );
 
     }
@@ -809,44 +688,28 @@ async function deleteSchool() {
         )
     ) {
 
-        showNotification(
-            "No valid school selected for deletion.",
-            "error"
-        );
-
-
         closeDeleteModal();
 
         return;
     }
 
-
     setButtonLoading(
         elements.confirmDeleteButton,
         true,
-        "Deleting..."
+        "DELETING..."
     );
-
 
     try {
 
-        /*
-         * DELETE
-         *
-         * /school/deleteById?id=...
-         */
+        const response = await fetch(
 
-        const response =
-            await fetch(
+            `${API_BASE_URL}/deleteById?id=${encodeURIComponent(deleteCandidate.id)}`,
 
-                `${API_BASE_URL}/deleteById?id=${encodeURIComponent(deleteCandidate.id)}`,
+            {
+                method: "DELETE"
+            }
 
-                {
-                    method: "DELETE"
-                }
-
-            );
-
+        );
 
         if (!response.ok) {
 
@@ -856,9 +719,8 @@ async function deleteSchool() {
 
         }
 
-
         /*
-         * Backend returns:
+         * Your backend returns:
          *
          * true
          *
@@ -872,33 +734,32 @@ async function deleteSchool() {
                 .trim()
                 .toLowerCase();
 
-
         const wasDeleted =
             resultText === "true";
-
 
         if (!wasDeleted) {
 
             showNotification(
-                "Unable to delete school.",
+                "Backend refused the delete operation.",
                 "error"
             );
 
             return;
         }
 
+        addActivity(
+            `School "${deleteCandidate.name ?? deleteCandidate.id}" deactivated`,
+            "delete"
+        );
 
         showNotification(
-            "School deleted successfully.",
+            "School deactivated.",
             "success"
         );
 
-
         closeDeleteModal();
 
-
         await getAllSchools();
-
 
     } catch (error) {
 
@@ -907,19 +768,17 @@ async function deleteSchool() {
             error
         );
 
-
         showNotification(
-            "Unable to delete school. Check the server connection.",
+            "Unable to delete school.",
             "error"
         );
-
 
     } finally {
 
         setButtonLoading(
             elements.confirmDeleteButton,
             false,
-            "Delete School"
+            "DELETE SCHOOL"
         );
 
     }
@@ -937,38 +796,30 @@ function renderSchools() {
             .trim()
             .toLowerCase();
 
-
     const status =
         elements.statusFilter.value;
 
-
     /*
-     * Client-side filtering.
-     *
-     * No backend request is required.
+     * Filter schools
      */
 
-    const filteredSchools =
-        schools.filter((school) => {
+    const filtered =
+        schools.filter(school => {
 
             const searchableText = [
-
                 school.id,
                 school.name,
                 school.location
-
             ]
                 .map(
-                    (value) =>
+                    value =>
                         String(value ?? "")
                             .toLowerCase()
                 )
                 .join(" ");
 
-
             const matchesSearch =
                 searchableText.includes(query);
-
 
             const matchesStatus =
 
@@ -984,7 +835,6 @@ function renderSchools() {
                     school.isActive === false
                 );
 
-
             return (
                 matchesSearch &&
                 matchesStatus
@@ -992,76 +842,67 @@ function renderSchools() {
 
         });
 
-
     /*
-     * Sort copy of filtered array
+     * Sort schools
      */
 
-    const sortedSchools =
-        [...filteredSchools]
+    const sorted =
+        [...filtered]
             .sort(compareSchools);
 
-
     /*
-     * Remove previous table rows
+     * Clear old table rows
      */
 
     elements.schoolsTableBody
         .replaceChildren();
 
-
     /*
-     * Create rows
+     * Create table rows
      */
 
-    sortedSchools.forEach(
-        (school) => {
+    sorted.forEach(school => {
 
-            elements.schoolsTableBody
-                .appendChild(
-                    createSchoolRow(school)
-                );
+        elements.schoolsTableBody
+            .appendChild(
+                createSchoolRow(school)
+            );
 
-        }
-    );
+    });
 
-
-    const hasAnySchools =
+    const hasAny =
         schools.length > 0;
 
-
-    const hasFilteredSchools =
-        sortedSchools.length > 0;
-
+    const hasFiltered =
+        sorted.length > 0;
 
     /*
-     * Empty state
+     * Empty State
      */
 
     elements.emptyState.classList.toggle(
         "hidden",
-        hasAnySchools ||
-        hasFilteredSchools
+        hasAny || hasFiltered
     );
 
-
     /*
-     * Table status
+     * Registry Status
      */
 
-    if (!hasAnySchools) {
-
-        elements.tableStatus.textContent = "";
-
-    } else if (!hasFilteredSchools) {
+    if (!hasAny) {
 
         elements.tableStatus.textContent =
-            "No schools match the current search or filter.";
+            "NO RECORDS IN REGISTRY";
+
+    } else if (!hasFiltered) {
+
+        elements.tableStatus.textContent =
+            "NO MATCHING RECORDS";
 
     } else {
 
         elements.tableStatus.textContent =
-            `Showing ${sortedSchools.length} of ${schools.length} school${schools.length === 1 ? "" : "s"}.`;
+            `SHOWING ${sorted.length} OF ${schools.length} SCHOOL${schools.length === 1 ? "" : "S"}`;
 
     }
 }
@@ -1076,65 +917,70 @@ function createSchoolRow(school) {
     const row =
         document.createElement("tr");
 
+    /*
+     * ID
+     */
 
-    // ID
     row.appendChild(
         createTextCell(
             school.id ?? "—"
         )
     );
 
+    /*
+     * Name
+     */
 
-    // Name
     row.appendChild(
         createTextCell(
             school.name ?? "Unnamed"
         )
     );
 
+    /*
+     * Location
+     */
 
-    // Location
     row.appendChild(
         createTextCell(
             school.location ?? "Unknown"
         )
     );
 
+    /*
+     * Status
+     */
 
-    // Status
     const statusCell =
         document.createElement("td");
 
-
-    const statusBadge =
+    const badge =
         document.createElement("span");
 
-
-    statusBadge.className =
+    badge.className =
         `status-badge ${
             school.isActive
                 ? "status-active"
                 : "status-inactive"
         }`;
 
-
-    statusBadge.textContent =
+    badge.textContent =
         school.isActive
-            ? "Active"
-            : "Inactive";
-
+            ? "ACTIVE"
+            : "INACTIVE";
 
     statusCell.appendChild(
-        statusBadge
+        badge
     );
-
 
     row.appendChild(
         statusCell
     );
 
+    /*
+     * Created Date
+     */
 
-    // Created Date
     row.appendChild(
         createTextCell(
             formatDate(
@@ -1143,8 +989,10 @@ function createSchoolRow(school) {
         )
     );
 
+    /*
+     * Updated Date
+     */
 
-    // Updated Date
     row.appendChild(
         createTextCell(
             formatDate(
@@ -1154,94 +1002,80 @@ function createSchoolRow(school) {
         )
     );
 
+    /*
+     * Actions
+     */
 
-    // Actions
-    const actionsCell =
+    const actionCell =
         document.createElement("td");
 
-
-    const actionGroup =
+    const group =
         document.createElement("div");
 
-
-    actionGroup.className =
+    group.className =
         "action-group";
 
-
     /*
-     * Edit button
+     * Edit Button
      */
 
     const editButton =
         document.createElement("button");
 
-
     editButton.type =
         "button";
-
 
     editButton.className =
         "action-button";
 
-
     editButton.textContent =
-        "Edit";
-
+        "EDIT";
 
     editButton.addEventListener(
         "click",
         () => openEditModal(school)
     );
 
-
     /*
-     * Delete button
+     * Delete Button
      */
 
     const deleteButton =
         document.createElement("button");
 
-
     deleteButton.type =
         "button";
-
 
     deleteButton.className =
         "action-button action-delete";
 
-
     deleteButton.textContent =
-        "Delete";
-
+        "DELETE";
 
     deleteButton.addEventListener(
         "click",
         () => openDeleteModal(school)
     );
 
-
-    actionGroup.append(
+    group.append(
         editButton,
         deleteButton
     );
 
-
-    actionsCell.appendChild(
-        actionGroup
+    actionCell.appendChild(
+        group
     );
-
 
     row.appendChild(
-        actionsCell
+        actionCell
     );
-
 
     return row;
 }
 
 
 /* =========================================================
-   SEARCH RESULT
+   RENDER SEARCH RESULT
    ========================================================= */
 
 function renderSearchResult(school) {
@@ -1249,22 +1083,17 @@ function renderSearchResult(school) {
     elements.searchResult
         .replaceChildren();
 
-
     const card =
         document.createElement("div");
-
 
     card.className =
         "search-card";
 
-
     const grid =
         document.createElement("div");
 
-
     grid.className =
         "search-card-grid";
-
 
     const details = [
 
@@ -1307,39 +1136,31 @@ function renderSearchResult(school) {
 
     ];
 
-
     details.forEach(
         ([label, value]) => {
 
             const detail =
                 document.createElement("div");
 
-
             detail.className =
                 "search-detail";
-
 
             const labelElement =
                 document.createElement("span");
 
-
             labelElement.textContent =
                 label;
-
 
             const valueElement =
                 document.createElement("strong");
 
-
             valueElement.textContent =
                 String(value);
-
 
             detail.append(
                 labelElement,
                 valueElement
             );
-
 
             grid.appendChild(
                 detail
@@ -1348,11 +1169,9 @@ function renderSearchResult(school) {
         }
     );
 
-
     card.appendChild(
         grid
     );
-
 
     elements.searchResult
         .appendChild(card);
@@ -1368,18 +1187,14 @@ function renderNotFound() {
     elements.searchResult
         .replaceChildren();
 
-
     const message =
         document.createElement("p");
-
 
     message.className =
         "not-found-message";
 
-
     message.textContent =
-        "School not found.";
-
+        "SCHOOL NOT FOUND IN ACTIVE REGISTRY.";
 
     elements.searchResult
         .appendChild(message);
@@ -1395,18 +1210,14 @@ function renderSearchError(text) {
     elements.searchResult
         .replaceChildren();
 
-
     const message =
         document.createElement("p");
-
 
     message.className =
         "error-message";
 
-
     message.textContent =
         text;
-
 
     elements.searchResult
         .appendChild(message);
@@ -1421,26 +1232,20 @@ function openEditModal(school) {
 
     clearEditFormErrors();
 
-
     elements.editSchoolId.value =
         school.id ?? "";
-
 
     elements.editSchoolName.value =
         school.name ?? "";
 
-
     elements.editSchoolLocation.value =
         school.location ?? "";
-
 
     openModal(
         elements.editModal
     );
 
-
-    elements.editSchoolName
-        .focus();
+    elements.editSchoolName.focus();
 }
 
 
@@ -1450,10 +1255,7 @@ function closeEditModal() {
         elements.editModal
     );
 
-
-    elements.editSchoolForm
-        .reset();
-
+    elements.editSchoolForm.reset();
 
     clearEditFormErrors();
 }
@@ -1468,18 +1270,12 @@ function openDeleteModal(school) {
     deleteCandidate =
         school;
 
-
     elements.deleteMessage.textContent =
-        `Are you sure you want to delete "${school.name ?? "this school"}"?`;
-
+        `Deactivate "${school.name ?? "this school"}" from the active registry?`;
 
     openModal(
         elements.deleteModal
     );
-
-
-    elements.confirmDeleteButton
-        .focus();
 }
 
 
@@ -1488,7 +1284,6 @@ function closeDeleteModal() {
     closeModal(
         elements.deleteModal
     );
-
 
     deleteCandidate =
         null;
@@ -1505,7 +1300,6 @@ function openModal(modal) {
         "hidden"
     );
 
-
     document.body.classList.add(
         "modal-open"
     );
@@ -1518,19 +1312,10 @@ function closeModal(modal) {
         "hidden"
     );
 
-
-    const anyModalOpen =
-
-        !elements.editModal.classList.contains(
-            "hidden"
-        ) ||
-
-        !elements.deleteModal.classList.contains(
-            "hidden"
-        );
-
-
-    if (!anyModalOpen) {
+    if (
+        elements.editModal.classList.contains("hidden") &&
+        elements.deleteModal.classList.contains("hidden")
+    ) {
 
         document.body.classList.remove(
             "modal-open"
@@ -1550,7 +1335,6 @@ function handleEscapeKey(event) {
         return;
     }
 
-
     if (
         !elements.editModal.classList.contains(
             "hidden"
@@ -1560,7 +1344,6 @@ function handleEscapeKey(event) {
         closeEditModal();
 
     }
-
 
     if (
         !elements.deleteModal.classList.contains(
@@ -1583,41 +1366,34 @@ function updateDashboardStatistics() {
     const total =
         schools.length;
 
-
     const active =
         schools.filter(
-            (school) =>
+            school =>
                 school.isActive === true
         ).length;
 
-
     const inactive =
         schools.filter(
-            (school) =>
+            school =>
                 school.isActive === false
         ).length;
 
-
     const updated =
         schools.filter(
-            (school) =>
+            school =>
                 Boolean(
                     school.updatedDate
                 )
         ).length;
 
-
     elements.totalSchools.textContent =
         total;
-
 
     elements.activeSchools.textContent =
         active;
 
-
     elements.inactiveSchools.textContent =
         inactive;
-
 
     elements.recentlyUpdated.textContent =
         updated;
@@ -1625,7 +1401,7 @@ function updateDashboardStatistics() {
 
 
 /* =========================================================
-   FORM VALIDATION
+   VALIDATION
    ========================================================= */
 
 function validateSchoolFields(
@@ -1635,12 +1411,11 @@ function validateSchoolFields(
     locationErrorElement
 ) {
 
-    let isValid =
+    let valid =
         true;
 
-
     /*
-     * School Name
+     * Validate School Name
      */
 
     if (!name) {
@@ -1648,21 +1423,23 @@ function validateSchoolFields(
         nameErrorElement.textContent =
             "School name is required.";
 
-        isValid =
+        valid =
             false;
 
-    } else if (name.length > 120) {
+    } else if (
+        name.length > 120
+    ) {
 
         nameErrorElement.textContent =
-            "School name must be 120 characters or fewer.";
+            "Maximum 120 characters.";
 
-        isValid =
+        valid =
             false;
+
     }
 
-
     /*
-     * Location
+     * Validate Location
      */
 
     if (!location) {
@@ -1670,32 +1447,33 @@ function validateSchoolFields(
         locationErrorElement.textContent =
             "Location is required.";
 
-        isValid =
+        valid =
             false;
 
-    } else if (location.length > 120) {
+    } else if (
+        location.length > 120
+    ) {
 
         locationErrorElement.textContent =
-            "Location must be 120 characters or fewer.";
+            "Maximum 120 characters.";
 
-        isValid =
+        valid =
             false;
+
     }
 
-
-    return isValid;
+    return valid;
 }
 
 
 /* =========================================================
-   CLEAR FORM ERRORS
+   CLEAR VALIDATION ERRORS
    ========================================================= */
 
 function clearAddFormErrors() {
 
     elements.schoolNameError.textContent =
         "";
-
 
     elements.schoolLocationError.textContent =
         "";
@@ -1707,14 +1485,13 @@ function clearEditFormErrors() {
     elements.editSchoolNameError.textContent =
         "";
 
-
     elements.editSchoolLocationError.textContent =
         "";
 }
 
 
 /* =========================================================
-   DATE FORMATTING
+   FORMAT DATE
    ========================================================= */
 
 function formatDate(
@@ -1722,22 +1499,16 @@ function formatDate(
     showNeverUpdated = false
 ) {
 
-    /*
-     * updatedDate can be null.
-     */
-
     if (!value) {
 
         return showNeverUpdated
-            ? "Never Updated"
-            : "Not Available";
+            ? "NEVER UPDATED"
+            : "N/A";
 
     }
 
-
     const date =
         new Date(value);
-
 
     if (
         Number.isNaN(
@@ -1745,10 +1516,9 @@ function formatDate(
         )
     ) {
 
-        return "Invalid Date";
+        return "INVALID DATE";
 
     }
-
 
     return new Intl.DateTimeFormat(
         undefined,
@@ -1764,7 +1534,7 @@ function formatDate(
 
 
 /* =========================================================
-   TOAST NOTIFICATIONS
+   CYBERPUNK TOAST NOTIFICATIONS
    ========================================================= */
 
 function showNotification(
@@ -1772,73 +1542,44 @@ function showNotification(
     type = "info"
 ) {
 
-    const allowedTypes = [
-        "success",
-        "error",
-        "warning",
-        "info"
-    ];
-
-
-    const finalType =
-        allowedTypes.includes(type)
-            ? type
-            : "info";
-
-
     const toast =
         document.createElement("div");
 
-
     toast.className =
-        `toast toast-${finalType}`;
-
+        `toast toast-${type}`;
 
     const title =
         document.createElement("strong");
 
-
     title.textContent = {
 
-        success: "Success",
+        success: "SYSTEM SUCCESS",
 
-        error: "Error",
+        error: "SYSTEM ERROR",
 
-        warning: "Warning",
+        warning: "SYSTEM WARNING",
 
-        info: "Information"
+        info: "SYSTEM INFO"
 
-    }[finalType];
-
+    }[type] ?? "SYSTEM INFO";
 
     const body =
         document.createElement("p");
 
-
     body.textContent =
         message;
-
 
     toast.append(
         title,
         body
     );
 
-
     elements.toastContainer
         .appendChild(toast);
 
-
-    /*
-     * Automatically remove toast
-     * after 4 seconds.
-     */
-
-    window.setTimeout(
+    setTimeout(
         () => {
-
             toast.remove();
-
         },
         4000
     );
@@ -1846,68 +1587,47 @@ function showNotification(
 
 
 /* =========================================================
-   BUTTON LOADING STATE
+   BUTTON LOADING
    ========================================================= */
 
 function setButtonLoading(
     button,
-    isLoading,
-    loadingText
+    loading,
+    text
 ) {
 
     if (!button) {
         return;
     }
 
-
     button.disabled =
-        isLoading;
+        loading;
 
-
-    if (isLoading) {
-
-        button.dataset.originalText =
-            button.textContent;
-
-
-        button.textContent =
-            loadingText;
-
-    } else {
-
-        button.textContent =
-            loadingText ||
-            button.dataset.originalText ||
-            button.textContent;
-
-
-        delete button.dataset.originalText;
-
-    }
+    button.textContent =
+        text;
 }
 
 
 /* =========================================================
-   TABLE LOADING STATE
+   TABLE LOADING
    ========================================================= */
 
-function setTableLoading(isLoading) {
+function setTableLoading(loading) {
 
-    if (isLoading) {
-
-        elements.tableStatus.textContent =
-            "Loading schools...";
-
-
-        elements.schoolsTableBody
-            .replaceChildren();
-
+    if (!loading) {
+        return;
     }
+
+    elements.tableStatus.textContent =
+        "LOADING SCHOOL REGISTRY...";
+
+    elements.schoolsTableBody
+        .replaceChildren();
 }
 
 
 /* =========================================================
-   CREATE SAFE TEXT CELL
+   CREATE SAFE TABLE CELL
    ========================================================= */
 
 function createTextCell(value) {
@@ -1915,15 +1635,8 @@ function createTextCell(value) {
     const cell =
         document.createElement("td");
 
-
-    /*
-     * textContent is used instead of
-     * unsafe innerHTML.
-     */
-
     cell.textContent =
         String(value);
-
 
     return cell;
 }
@@ -1934,11 +1647,6 @@ function createTextCell(value) {
    ========================================================= */
 
 function changeSort(key) {
-
-    /*
-     * Clicking the same column again
-     * reverses the direction.
-     */
 
     if (
         sortState.key === key
@@ -1954,12 +1662,10 @@ function changeSort(key) {
         sortState.key =
             key;
 
-
         sortState.direction =
             "asc";
 
     }
-
 
     renderSchools();
 }
@@ -1973,20 +1679,16 @@ function compareSchools(a, b) {
             sortState.key
         );
 
-
     const bValue =
         getSortableValue(
             b,
             sortState.key
         );
 
-
-    let comparison =
-        0;
-
+    let comparison;
 
     /*
-     * Number comparison
+     * Numeric comparison
      */
 
     if (
@@ -2016,7 +1718,6 @@ function compareSchools(a, b) {
 
     }
 
-
     return sortState.direction === "asc"
         ? comparison
         : -comparison;
@@ -2029,7 +1730,7 @@ function getSortableValue(
 ) {
 
     /*
-     * Dates
+     * Date sorting
      */
 
     if (
@@ -2041,21 +1742,19 @@ function getSortableValue(
             return 0;
         }
 
-
         const time =
             new Date(
                 school[key]
             ).getTime();
 
-
         return Number.isNaN(time)
             ? 0
             : time;
+
     }
 
-
     /*
-     * ID
+     * ID sorting
      */
 
     if (key === "id") {
@@ -2066,9 +1765,8 @@ function getSortableValue(
 
     }
 
-
     /*
-     * Name / Location
+     * Name / Location sorting
      */
 
     return school[key] ?? "";
@@ -2081,13 +1779,8 @@ function getSortableValue(
 
 function navigateToSection(button) {
 
-    /*
-     * Remove active style
-     * from previous item.
-     */
-
     elements.navLinks.forEach(
-        (link) => {
+        link => {
 
             link.classList.remove(
                 "active"
@@ -2096,21 +1789,14 @@ function navigateToSection(button) {
         }
     );
 
-
-    /*
-     * Activate selected item.
-     */
-
     button.classList.add(
         "active"
     );
-
 
     const target =
         document.getElementById(
             button.dataset.target
         );
-
 
     if (target) {
 
@@ -2121,10 +1807,9 @@ function navigateToSection(button) {
 
     }
 
-
     /*
-     * Close sidebar automatically
-     * on tablet/mobile.
+     * Automatically close sidebar
+     * on mobile/tablet.
      */
 
     if (
@@ -2134,7 +1819,6 @@ function navigateToSection(button) {
         elements.sidebar.classList.remove(
             "open"
         );
-
 
         elements.menuToggle.setAttribute(
             "aria-expanded",
@@ -2151,44 +1835,251 @@ function navigateToSection(button) {
 
 function toggleSidebar() {
 
-    const isOpen =
+    const open =
         elements.sidebar.classList.toggle(
             "open"
         );
 
-
     elements.menuToggle.setAttribute(
         "aria-expanded",
-        String(isOpen)
+        String(open)
     );
 }
 
 
 /* =========================================================
-   JSON RESPONSE PARSER
+   GO TO ADD SCHOOL SECTION
+   ========================================================= */
+
+function focusAddSection() {
+
+    document
+        .getElementById("add-section")
+        .scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+
+    setTimeout(
+        () => {
+            elements.schoolName.focus();
+        },
+        250
+    );
+}
+
+
+/* =========================================================
+   SYSTEM ACTIVITY LOG
+   ========================================================= */
+
+function addActivity(
+    text,
+    type
+) {
+
+    const now =
+        new Date();
+
+    activityLog.unshift({
+
+        text: text,
+
+        type: type,
+
+        time: now.toLocaleTimeString(
+            [],
+            {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit"
+            }
+        )
+
+    });
+
+    /*
+     * Keep only latest 6 actions.
+     */
+
+    activityLog =
+        activityLog.slice(
+            0,
+            6
+        );
+
+    renderActivity();
+}
+
+
+/* =========================================================
+   RENDER SYSTEM ACTIVITY
+   ========================================================= */
+
+function renderActivity() {
+
+    elements.activityList
+        .replaceChildren();
+
+    if (
+        activityLog.length === 0
+    ) {
+
+        const empty =
+            document.createElement("div");
+
+        empty.className =
+            "activity-empty";
+
+        empty.textContent =
+            "No activity yet.";
+
+        elements.activityList
+            .appendChild(empty);
+
+        return;
+    }
+
+    activityLog.forEach(
+        item => {
+
+            const row =
+                document.createElement("div");
+
+            row.className =
+                "activity-item";
+
+            /*
+             * Time
+             */
+
+            const time =
+                document.createElement("span");
+
+            time.className =
+                "activity-time";
+
+            time.textContent =
+                item.time;
+
+            /*
+             * Activity Description
+             */
+
+            const text =
+                document.createElement("span");
+
+            text.className =
+                "activity-text";
+
+            text.textContent =
+                item.text;
+
+            /*
+             * Activity Type
+             */
+
+            const type =
+                document.createElement("span");
+
+            type.className =
+                `activity-type ${item.type}`;
+
+            type.textContent =
+                item.type;
+
+            row.append(
+                time,
+                text,
+                type
+            );
+
+            elements.activityList
+                .appendChild(row);
+
+        }
+    );
+}
+
+
+/* =========================================================
+   LIVE CYBERPUNK CLOCK
+   ========================================================= */
+
+function startClock() {
+
+    const tick = () => {
+
+        const now =
+            new Date();
+
+        /*
+         * Time
+         */
+
+        elements.liveTime.textContent =
+            now.toLocaleTimeString(
+                [],
+                {
+                    hour12: false,
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit"
+                }
+            );
+
+        /*
+         * Date
+         */
+
+        elements.liveDate.textContent =
+            now.toLocaleDateString(
+                [],
+                {
+                    month: "short",
+                    day: "2-digit",
+                    year: "numeric"
+                }
+            ).toUpperCase();
+
+    };
+
+    /*
+     * Run immediately.
+     */
+
+    tick();
+
+    /*
+     * Then update every second.
+     */
+
+    setInterval(
+        tick,
+        1000
+    );
+}
+
+
+/* =========================================================
+   SAFE JSON PARSER
    ========================================================= */
 
 async function parseJsonResponse(response) {
 
-    /*
-     * Read response as text first.
-     *
-     * This allows us to detect invalid JSON
-     * and provide a meaningful error.
-     */
-
     const text =
         await response.text();
 
-
     try {
 
-        return JSON.parse(text);
+        return JSON.parse(
+            text
+        );
 
     } catch (error) {
 
         throw new Error(
-            `Invalid JSON returned by the backend: ${error.message}`
+            `Invalid JSON returned by backend: ${error.message}`
         );
 
     }
